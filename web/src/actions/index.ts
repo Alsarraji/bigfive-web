@@ -112,13 +112,11 @@ export async function saveFeedback(
 export async function notifyZAD(
   callbackUrl: string,
   token: string,
-  answers: { domain: string; facet?: number; score: number }[]
+  answers: any[]
 ): Promise<boolean> {
   try {
-    const domains = calculateScore({ answers }) as Record<
-      string,
-      { score: number; count: number }
-    >;
+    const domains: Record<string, { score: number; count: number }> =
+      (calculateScore as any)({ answers });
     const ocean: Record<string, number> = {};
     const raw_scores: { domain: string; score: number; count: number }[] = [];
     for (const [domain, d] of Object.entries(domains)) {
