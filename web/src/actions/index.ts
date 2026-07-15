@@ -104,3 +104,36 @@ export async function saveFeedback(
     };
   }
 }
+
+// ── ZAD People callback ────────────────────────────────────────────────────
+// Called after the candidate finishes the test. calculateScore() returns an
+// object keyed by domain code ({ O:{score,count,...}, C, E, A, N }); we
+// normalise each to a 0–100 percentage and POST { O,C,E,A,N } to ZAD People.
+export async function notifyZAD(
+  callbackUrl: string,
+  token: string,
+  answers: { domain: string; facet?: number; score: number }[]
+): Promise<boolean> {
+  try {
+    const domains = calculateScore({ answers }) as Record<
+      string,
+      { score: number; count: number }
+    >;
+    const ocean: Record<string, number> = {};
+    const raw_scores: { domain: string; score: number; count: number }[] = [];
+    for (const [domain, d] of Object.entries(domains)) {
+      ocean[domain] = Math.round((d.score / (d.count * 5)) * 100);
+      raw_scores.push({ domain, score: d.score, count: d.count });
+    }
+    const resp = await fetch(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zad_token: token, ocean, raw_scores }),
+      cache: 'no-store'
+    });
+    return resp.ok;
+  } catch (err) {
+    console.error('[ZAD callback] Failed to post results:', err);
+    return false;
+  }
+}

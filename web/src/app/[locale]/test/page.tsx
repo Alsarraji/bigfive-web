@@ -9,12 +9,12 @@ const questionLanguages = getInfo().languages;
 
 interface Props {
   params: { locale: string };
-  searchParams: { lang?: string };
+  searchParams: { lang?: string; zad_token?: string; zad_callback?: string };
 }
 
 export default function TestPage({
   params: { locale },
-  searchParams: { lang }
+  searchParams: { lang, zad_token, zad_callback }
 }: Props) {
   unstable_setRequestLocale(locale);
   const language =
@@ -36,6 +36,8 @@ export default function TestPage({
         resultsText={t('seeResults')}
         saveTest={saveTest}
         language={language}
+        zadToken={zad_token}
+        zadCallback={zad_callback}
       />
     </>
   );

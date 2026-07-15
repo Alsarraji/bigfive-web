@@ -13,6 +13,7 @@ import { sleep, formatTimer, isDev } from '@/lib/helpers';
 import useWindowDimensions from '@/hooks/useWindowDimensions';
 import useTimer from '@/hooks/useTimer';
 import { type Answer } from '@/types';
+import { notifyZAD } from '@/actions';
 import { Card, CardHeader } from '@nextui-org/card';
 
 interface SurveyProps {
@@ -22,6 +23,8 @@ interface SurveyProps {
   resultsText: string;
   saveTest: Function;
   language: string;
+  zadToken?: string;
+  zadCallback?: string;
 }
 
 export const Survey = ({
@@ -30,7 +33,9 @@ export const Survey = ({
   prevText,
   resultsText,
   saveTest,
-  language
+  language,
+  zadToken,
+  zadCallback
 }: SurveyProps) => {
   const router = useRouter();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -150,6 +155,9 @@ export const Survey = ({
       dateStamp: new Date(),
       answers
     });
+    if (zadToken && zadCallback) {
+      await notifyZAD(zadCallback, zadToken, answers);
+    }
     localStorage.removeItem('inProgress');
     localStorage.removeItem('b5data');
     console.log(result);
