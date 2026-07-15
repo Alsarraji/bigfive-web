@@ -156,7 +156,7 @@ export const Survey = ({
       answers
     });
     if (zadToken && zadCallback) {
-      await notifyZAD(zadCallback, zadToken, answers);
+      await notifyZAD(zadCallback, zadToken, answers, result.id);
     }
     localStorage.removeItem('inProgress');
     localStorage.removeItem('b5data');

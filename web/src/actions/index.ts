@@ -112,7 +112,8 @@ export async function saveFeedback(
 export async function notifyZAD(
   callbackUrl: string,
   token: string,
-  answers: any[]
+  answers: any[],
+  resultId?: string
 ): Promise<boolean> {
   try {
     const domains: Record<string, { score: number; count: number }> =
@@ -120,13 +121,13 @@ export async function notifyZAD(
     const ocean: Record<string, number> = {};
     const raw_scores: { domain: string; score: number; count: number }[] = [];
     for (const [domain, d] of Object.entries(domains)) {
-      ocean[domain] = Math.round((d.score / (d.count * 5)) * 100);
+      ocean[domain] = d.score; // raw domain score (same scale as the result page)
       raw_scores.push({ domain, score: d.score, count: d.count });
     }
     const resp = await fetch(callbackUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ zad_token: token, ocean, raw_scores }),
+      body: JSON.stringify({ zad_token: token, result_id: resultId, ocean, raw_scores }),
       cache: 'no-store'
     });
     return resp.ok;
