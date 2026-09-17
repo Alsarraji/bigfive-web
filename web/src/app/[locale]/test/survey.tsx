@@ -44,6 +44,8 @@ export const Survey = ({
   const [loading, setLoading] = useState(false);
   const [restored, setRestored] = useState(false);
   const [inProgress, setInProgress] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submittedToZad, setSubmittedToZad] = useState(false);
   const { width } = useWindowDimensions();
   const seconds = useTimer();
 
@@ -144,25 +146,62 @@ export const Survey = ({
     setCurrentQuestionIndex(questions.length - 1);
   }
 
+  // Saving and telling ZAD are separate on purpose. The scores are calculated
+  // from the answers, not read back from this app's database, so ZAD can be sent
+  // the result even when that database is unreachable. Before this, a failed
+  // save threw straight out of the click handler: the button spun forever,
+  // nothing reached ZAD, and the candidate had no idea anything was wrong
+  // (2026-09-17, the database address stopped resolving).
   async function submitTest() {
     setLoading(true);
-    confetti({});
-    const result = await saveTest({
-      testId: 'b5-120',
-      lang: language,
-      invalid: false,
-      timeElapsed: seconds,
-      dateStamp: new Date(),
-      answers
-    });
-    if (zadToken && zadCallback) {
-      await notifyZAD(zadCallback, zadToken, answers, result.id);
+    setSubmitError('');
+
+    let resultId: string | undefined;
+    try {
+      const result = await saveTest({
+        testId: 'b5-120',
+        lang: language,
+        invalid: false,
+        timeElapsed: seconds,
+        dateStamp: new Date(),
+        answers
+      });
+      resultId = result?.id;
+    } catch (err) {
+      console.error('[submit] could not save the test result:', err);
     }
+
+    const forZad = !!(zadToken && zadCallback);
+    let zadOk = false;
+    if (forZad) {
+      zadOk = await notifyZAD(zadCallback!, zadToken!, answers, resultId);
+    }
+
+    // Nothing landed anywhere: keep every answer so pressing the button again
+    // retries, rather than losing an hour of the candidate's time.
+    if ((forZad && !zadOk) || (!forZad && !resultId)) {
+      setLoading(false);
+      setSubmitError(
+        'Your answers could not be submitted just now. They are still saved on this device, so please press the button again in a minute. If it keeps happening, contact the person who sent you the link.'
+      );
+      return;
+    }
+
+    confetti({});
     localStorage.removeItem('inProgress');
     localStorage.removeItem('b5data');
-    console.log(result);
-    localStorage.setItem('resultId', result.id);
-    router.push(`/result/${result.id}`);
+
+    if (resultId) {
+      localStorage.setItem('resultId', resultId);
+      router.push(`/result/${resultId}`);
+      return;
+    }
+
+    // ZAD has the results but this app could not store its own copy, so there is
+    // no report page to open. Say so plainly instead of sending them to a page
+    // that would fail.
+    setLoading(false);
+    setSubmittedToZad(true);
   }
 
   function dataInLocalStorage() {
@@ -192,6 +231,18 @@ export const Survey = ({
     localStorage.removeItem('inProgress');
     localStorage.removeItem('b5data');
     location.reload();
+  }
+
+  if (submittedToZad) {
+    return (
+      <div className='mt-10 text-center'>
+        <h2 className='text-2xl font-bold mb-3'>Thank you</h2>
+        <p>
+          Your answers have been submitted to ZAD. There is nothing more you
+          need to do, and you can close this page.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -259,6 +310,13 @@ export const Survey = ({
           </div>
         </div>
       ))}
+      {submitError && (
+        <Card className='mt-8 bg-danger/10 text-danger'>
+          <CardHeader>
+            <p>{submitError}</p>
+          </CardHeader>
+        </Card>
+      )}
       <div className='my-12 space-x-4 inline-flex'>
         <Button
           color='primary'
