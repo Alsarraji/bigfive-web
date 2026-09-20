@@ -116,18 +116,28 @@ export async function notifyZAD(
   resultId?: string
 ): Promise<boolean> {
   try {
-    const domains: Record<string, { score: number; count: number }> =
-      (calculateScore as any)({ answers });
+    const domains: Record<
+      string,
+      { score: number; count: number; facet?: Record<string, { score: number; count: number }> }
+    > = (calculateScore as any)({ answers });
     const ocean: Record<string, number> = {};
     const raw_scores: { domain: string; score: number; count: number }[] = [];
+    // The 30 facet scores come out of the same call and used to be thrown away,
+    // which left ZAD unable to show a full report when this app's own database
+    // was unreachable. They are cheap to send and are what makes that report
+    // possible at all.
+    const facets: { domain: string; facet: number; score: number; count: number }[] = [];
     for (const [domain, d] of Object.entries(domains)) {
       ocean[domain] = d.score; // raw domain score (same scale as the result page)
       raw_scores.push({ domain, score: d.score, count: d.count });
+      for (const [facet, f] of Object.entries(d.facet || {})) {
+        facets.push({ domain, facet: Number(facet), score: f.score, count: f.count });
+      }
     }
     const resp = await fetch(callbackUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ zad_token: token, result_id: resultId, ocean, raw_scores }),
+      body: JSON.stringify({ zad_token: token, result_id: resultId, ocean, raw_scores, facets }),
       cache: 'no-store'
     });
     return resp.ok;
